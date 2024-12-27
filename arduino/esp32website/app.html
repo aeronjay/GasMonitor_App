@@ -1,0 +1,102 @@
+<!DOCTYPE html> 
+<html>
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no\">
+        <title>ESP32 Sensor Monitor</title>
+        <style>
+            *{
+                padding: 0;
+                margin: 0;
+                box-sizing: border-box;
+                
+            }
+            html { font-family: Helvetica; text-align: center;}
+            body {margin: 0; padding: 20px;}
+            .button {display: inline-block; margin: 10px; padding: 10px 20px; color: white; text-decoration: none; border-radius: 4px;}
+            .button-on {background-color: #3498db;}
+            .button-off {background-color: #34495e;}
+            .header{
+                background-color: #4C585B;
+                padding: 20px 10px;
+                color: white;
+            }
+            .mainSection{
+                margin-bottom: 35px;
+            }
+            .history{
+                text-align: left;
+                background-color: #7E99A3;
+                border-radius: 10px;
+                width: auto;
+                height: 50vh;
+            }
+            .history-text{
+                padding: 15px;
+            }
+            .history-table{
+                width: 100%;
+                height: 100%;
+                background-color: gray;
+            }
+            .table{
+                width: 100%;
+            }
+            td{
+                padding: 10px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="header mainSection">
+            <h1>ESP32 Sensor Monitor</h1>
+        </div>
+        <div class="content mainSection">
+            <h3>Using Access Point (AP) Mode</h3>
+            <p>Sensor Value: <span id='sensorValue'>" + String(sensorVal) + "</span></p>
+            <div>
+                Sensor Evaluation: 
+                <span class="sensorEval">
+                    NORMAL
+                </span>
+            </div>
+            <button class='button button-on' onclick='toggleLED("on")'>Turn LED ON</button>
+            <button class='button button-off' onclick='toggleLED("off")'>Turn LED OFF</button>
+        </div>
+        <div class="history mainSection">
+            <h2 class="history-text">GAS SENSOR HISTORY: </h2>
+            <div class="history-table">
+                <table class="table">
+                    <thead>
+                        <td>Date</td>
+                        <td>Time</td>
+                        <td>location</td>
+                        <td>Detected Value</td>
+                    </thead>
+                    <tbody class="table-body">
+                        
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <script>
+            function updateSensor() {
+                fetch('/').then(response => response.text()).then(data => {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(data, 'text/html');
+                    const newValue = doc.getElementById('sensorValue').innerText;
+                    document.getElementById('sensorValue').innerText = newValue;
+                });
+            }
+            function toggleLED(action) {
+                fetch('/led1' + action).then(() => updateSensor());
+            }
+            function getHistory(){
+                const tbody = document.querySelector(".table-body")
+                // get history and display it in table ...
+                
+            }
+            // setInterval(updateSensor, 2000); // Update every 2 seconds
+        </script>
+    </body>
+</html>
