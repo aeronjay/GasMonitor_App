@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <WebServer.h>
+#include <TimeLib.h>
 
 //HardwareSerial SIM900A(2);
 
@@ -37,7 +38,19 @@ int gasThreshold = 1000;
 String phone_no = "+639453674856";
 String txt_content = "Leak Detected!!!\nLocation: PUREZA STATION";
 
+struct HistoryRecord {
+  String date;
+  String time;
+  int sensorValue;
+};
+
+
+// Global history records
+std::vector<HistoryRecord> historyRecords;
+
+
 void setup() {
+  setTime(12, 0, 0, 1, 1, 2025);
   Serial.begin(115200);
   pinMode(LED1pin, OUTPUT);
 
@@ -57,6 +70,7 @@ void setup() {
   server.on("/authenticate", handle_Authenticate);
   server.on("/led1on", handle_led1on);
   server.on("/led1off", handle_led1off);
+  server.on("/sensor-data", handle_SensorData);
   server.onNotFound(handle_NotFound);
 
   // Start server
@@ -73,79 +87,8 @@ void loop() {
   CheckShutDown();
 }
 
-// Main page handler
-void handle_MainPage() {
-  if (!isAuthenticated) {
-    server.sendHeader("Location", "/login");
-    server.send(303); // Redirect to login page
-    return;
-  }
-  server.send(200, "text/html", SendHTML(LED1status, sensorValue));
-}
 
 // Login page handler
-void handle_LoginPage() {
-  String loginHTML = "<!DOCTYPE html><html>\n";
-  loginHTML += "<head><title>Login</title>\n";
-  loginHTML += "<style>\n";
-  loginHTML += "  body {\n";
-  loginHTML += "    font-family: Helvetica, Arial, sans-serif;\n";
-  loginHTML += "    margin: 0;\n";
-  loginHTML += "    padding: 0;\n";
-  loginHTML += "    display: flex;\n";
-  loginHTML += "    justify-content: center;\n";
-  loginHTML += "    align-items: center;\n";
-  loginHTML += "    height: 100vh;\n";
-  loginHTML += "    background-color: #eaf6ff;\n";
-  loginHTML += "  }\n";
-  loginHTML += "  .login-container {\n";
-  loginHTML += "    background-color: #3498db;\n";
-  loginHTML += "    padding: 20px 40px;\n";
-  loginHTML += "    border-radius: 10px;\n";
-  loginHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
-  loginHTML += "    text-align: center;\n";
-  loginHTML += "    color: white;\n";
-  loginHTML += "  }\n";
-  loginHTML += "  .login-container h2 {\n";
-  loginHTML += "    margin-bottom: 20px;\n";
-  loginHTML += "    font-size: 24px;\n";
-  loginHTML += "    color: #ffffff;\n";
-  loginHTML += "  }\n";
-  loginHTML += "  .login-container input[type='text'],\n";
-  loginHTML += "  .login-container input[type='password'] {\n";
-  loginHTML += "    width: 100%;\n";
-  loginHTML += "    padding: 10px;\n";
-  loginHTML += "    margin: 10px 0;\n";
-  loginHTML += "    border: none;\n";
-  loginHTML += "    border-radius: 5px;\n";
-  loginHTML += "    font-size: 16px;\n";
-  loginHTML += "  }\n";
-  loginHTML += "  .login-container input[type='submit'] {\n";
-  loginHTML += "    background-color: #2874a6;\n";
-  loginHTML += "    color: white;\n";
-  loginHTML += "    border: none;\n";
-  loginHTML += "    padding: 10px 20px;\n";
-  loginHTML += "    font-size: 16px;\n";
-  loginHTML += "    border-radius: 5px;\n";
-  loginHTML += "    cursor: pointer;\n";
-  loginHTML += "  }\n";
-  loginHTML += "  .login-container input[type='submit']:hover {\n";
-  loginHTML += "    background-color: #1b4f72;\n";
-  loginHTML += "  }\n";
-  loginHTML += "</style>\n";
-  loginHTML += "</head>\n";
-  loginHTML += "<body>\n";
-  loginHTML += "  <div class='login-container'>\n";
-  loginHTML += "    <h2>GAS LEAK DETECTOR</h2>\n";
-  loginHTML += "    <form action='/authenticate' method='POST'>\n";
-  loginHTML += "      <input type='text' name='username' placeholder='Username' required><br>\n";
-  loginHTML += "      <input type='password' name='password' placeholder='Password' required><br>\n";
-  loginHTML += "      <input type='submit' value='Login'>\n";
-  loginHTML += "    </form>\n";
-  loginHTML += "  </div>\n";
-  loginHTML += "</body></html>\n";
-  server.send(200, "text/html", loginHTML);
-}
 
 
 // Authentication handler
@@ -176,6 +119,7 @@ void handle_led1on() {
   server.send(200, "text/html", SendHTML(LED1status, sensorValue));
 }
 
+
 // Turn LED off handler
 void handle_led1off() {
   if (!isAuthenticated) {
@@ -187,6 +131,14 @@ void handle_led1off() {
   Serial.println("LED1 Status: OFF");
   server.send(200, "text/html", SendHTML(LED1status, sensorValue));
 }
+void handle_SensorData() {
+  String jsonResponse = "{";
+  jsonResponse += "\"sensorValue\":" + String(sensorValue) + ",";
+  jsonResponse += "\"gasLeak\":" + String(Gas_Leak_Status ? "true" : "false");
+  jsonResponse += "}";
+  server.send(200, "application/json", jsonResponse);
+}
+
 
 // Not found handler
 void handle_NotFound() {
@@ -199,12 +151,16 @@ void CheckGas() {
   Serial.println(sensorValue); // Print value to Serial Monitor
 
   if (sensorValue > gasThreshold) {
+    // Record history entry
+    HistoryRecord record;
+    record.date = getCurrentDate();
+    record.time = getCurrentTime();
+    record.sensorValue = sensorValue;
+    historyRecords.push_back(record);
+
     // Alert State
-    // digitalWrite(GREEN_LED, LOW);
-    // digitalWrite(RED_LED, HIGH);
     SetAlert();
     delay(2000);
-    // callUp(phone_no);
   }
   delay(100);
 }
@@ -290,3 +246,199 @@ String SendHTML(bool led1status, int sensorVal) {
   ptr += "</html>\n";
   return ptr;
 }
+
+void handle_LoginPage() {
+  String loginHTML = "<!DOCTYPE html><html>\n";
+  loginHTML += "<head><title>Login</title>\n";
+  loginHTML += "<style>\n";
+  loginHTML += "  body {\n";
+  loginHTML += "    font-family: Helvetica, Arial, sans-serif;\n";
+  loginHTML += "    margin: 0;\n";
+  loginHTML += "    padding: 0;\n";
+  loginHTML += "    display: flex;\n";
+  loginHTML += "    justify-content: center;\n";
+  loginHTML += "    align-items: center;\n";
+  loginHTML += "    height: 100vh;\n";
+  loginHTML += "    background-color: #eaf6ff;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container {\n";
+  loginHTML += "    background-color: #3498db;\n";
+  loginHTML += "    padding: 20px 40px;\n";
+  loginHTML += "    border-radius: 10px;\n";
+  loginHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
+  loginHTML += "    text-align: center;\n";
+  loginHTML += "    color: white;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container h2 {\n";
+  loginHTML += "    margin-bottom: 20px;\n";
+  loginHTML += "    font-size: 24px;\n";
+  loginHTML += "    color: #ffffff;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='text'],\n";
+  loginHTML += "  .login-container input[type='password'] {\n";
+  loginHTML += "    width: 100%;\n";
+  loginHTML += "    padding: 10px;\n";
+  loginHTML += "    margin: 10px 0;\n";
+  loginHTML += "    border: none;\n";
+  loginHTML += "    border-radius: 5px;\n";
+  loginHTML += "    font-size: 16px;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='submit'] {\n";
+  loginHTML += "    background-color: #2874a6;\n";
+  loginHTML += "    color: white;\n";
+  loginHTML += "    border: none;\n";
+  loginHTML += "    padding: 10px 20px;\n";
+  loginHTML += "    font-size: 16px;\n";
+  loginHTML += "    border-radius: 5px;\n";
+  loginHTML += "    cursor: pointer;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='submit']:hover {\n";
+  loginHTML += "    background-color: #1b4f72;\n";
+  loginHTML += "  }\n";
+  loginHTML += "</style>\n";
+  loginHTML += "</head>\n";
+  loginHTML += "<body>\n";
+  loginHTML += "  <div class='login-container'>\n";
+  loginHTML += "    <h2>GAS LEAK DETECTOR</h2>\n";
+  loginHTML += "    <form action='/authenticate' method='POST'>\n";
+  loginHTML += "      <input type='text' name='username' placeholder='Username' required><br>\n";
+  loginHTML += "      <input type='password' name='password' placeholder='Password' required><br>\n";
+  loginHTML += "      <input type='submit' value='Login'>\n";
+  loginHTML += "    </form>\n";
+  loginHTML += "  </div>\n";
+  loginHTML += "</body></html>\n";
+  server.send(200, "text/html", loginHTML);
+}
+
+// Main page handler
+void handle_MainPage() {
+  if (!isAuthenticated) {
+    server.sendHeader("Location", "/login");
+    server.send(303); // Redirect to login page
+    return;
+  }
+
+  String mainHTML = "<!DOCTYPE html><html>\n";
+  mainHTML += "<head><title>GAS LEAK DETECTOR</title>\n";
+  mainHTML += "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">\n";
+  mainHTML += "<style>\n";
+  mainHTML += "  body {\n";
+  mainHTML += "    font-family: Helvetica, Arial, sans-serif;\n";
+  mainHTML += "    margin: 0;\n";
+  mainHTML += "    padding: 0;\n";
+  mainHTML += "    background-color: #eaf6ff;\n";
+  mainHTML += "    color: #333;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  .container {\n";
+  mainHTML += "    margin: 10px;\n";
+  mainHTML += "    padding: 15px;\n";
+  mainHTML += "    background-color: #3498db;\n";
+  mainHTML += "    color: white;\n";
+  mainHTML += "    border-radius: 10px;\n";
+  mainHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
+  mainHTML += "  }\n";
+  mainHTML += "  .sensor-value {\n";
+  mainHTML += "    font-size: 18px;\n";
+  mainHTML += "    margin: 15px 0;\n";
+  mainHTML += "    padding: 10px;\n";
+  mainHTML += "    border-radius: 5px;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  .safe { background-color: #2ecc71; color: white; }\n";
+  mainHTML += "  .high { background-color: #f1c40f; color: white; }\n";
+  mainHTML += "  .danger { background-color: #e74c3c; color: white; }\n";
+  mainHTML += "  table {\n";
+  mainHTML += "    width: 100%;\n";
+  mainHTML += "    margin-top: 15px;\n";
+  mainHTML += "    border-collapse: collapse;\n";
+  mainHTML += "    background-color: white;\n";
+  mainHTML += "    color: #333;\n";
+  mainHTML += "    font-size: 14px;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  table th, table td {\n";
+  mainHTML += "    border: 1px solid #ddd;\n";
+  mainHTML += "    padding: 6px;\n";
+  mainHTML += "    text-align: center;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  table th {\n";
+  mainHTML += "    background-color: #2874a6;\n";
+  mainHTML += "    color: white;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  h1, h2 {\n";
+  mainHTML += "    font-size: 20px;\n";
+  mainHTML += "  }\n";
+  mainHTML += "  @media (max-width: 600px) {\n";
+  mainHTML += "    .container { padding: 10px; }\n";
+  mainHTML += "    .sensor-value { font-size: 16px; }\n";
+  mainHTML += "    h1, h2 { font-size: 18px; }\n";
+  mainHTML += "    table { font-size: 12px; }\n";
+  mainHTML += "    table th, table td { padding: 4px; }\n";
+  mainHTML += "  }\n";
+  mainHTML += "</style>\n";
+  mainHTML += "</head>\n";
+  mainHTML += "<body>\n";
+  mainHTML += "  <div class='container'>\n";
+  mainHTML += "    <h1>GAS LEAK DETECTOR</h1>\n";
+  mainHTML += "    <p>Welcome to the GAS LEAK DETECTOR monitoring system.</p>\n";
+
+  String sensorClass = "safe";
+  if (sensorValue > 700) {
+    sensorClass = "danger";
+  } else if (sensorValue > 400) {
+    sensorClass = "high";
+  }
+
+  mainHTML += "    <div class='sensor-value " + sensorClass + "'>\n";
+  mainHTML += "      Current Sensor Value: <span id='sensorValue'>" + String(sensorValue) + "</span>\n";
+  mainHTML += "    </div>\n";
+
+  mainHTML += "    <h2>History</h2>\n";
+  mainHTML += "    <table>\n";
+  mainHTML += "      <tr>\n";
+  mainHTML += "        <th>Date</th>\n";
+  mainHTML += "        <th>Time</th>\n";
+  mainHTML += "        <th>Recorded Sensor Value</th>\n";
+  mainHTML += "      </tr>\n";
+
+  for (const auto& record : historyRecords) {
+    mainHTML += "      <tr>\n";
+    mainHTML += "        <td>" + record.date + "</td>\n";
+    mainHTML += "        <td>" + record.time + "</td>\n";
+    mainHTML += "        <td>" + String(record.sensorValue) + "</td>\n";
+    mainHTML += "      </tr>\n";
+  }
+
+  mainHTML += "    </table>\n";
+  mainHTML += "  </div>\n";
+  mainHTML += "  <script>\n";
+  mainHTML += "    function fetchSensorData() {\n";
+  mainHTML += "      fetch('/')\n";
+  mainHTML += "        .then(response => response.text())\n";
+  mainHTML += "        .then(html => {\n";
+  mainHTML += "          const parser = new DOMParser();\n";
+  mainHTML += "          const doc = parser.parseFromString(html, 'text/html');\n";
+  mainHTML += "          const newValue = doc.getElementById('sensorValue').innerText;\n";
+  mainHTML += "          document.getElementById('sensorValue').innerText = newValue;\n";
+  mainHTML += "        });\n";
+  mainHTML += "    }\n";
+  mainHTML += "    setInterval(fetchSensorData, 2000); // Refresh every 2 seconds\n";
+  mainHTML += "  </script>\n";
+  mainHTML += "</body></html>\n";
+  server.send(200, "text/html", mainHTML);
+}
+
+// History record structure
+
+
+
+String getCurrentDate() {
+  // Format date as DD/MM/YYYY
+  String date = String(day()) + "/" + String(month()) + "/" + String(year());
+  return date;
+}
+
+String getCurrentTime() {
+  // Format time as HH:MM:SS
+  String time = String(hour()) + ":" + String(minute()) + ":" + String(second());
+  return time;
+}
+
