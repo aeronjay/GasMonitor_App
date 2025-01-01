@@ -1,6 +1,8 @@
 #include <WiFi.h>
 #include <WebServer.h>
 
+//HardwareSerial SIM900A(2);
+
 /* Wi-Fi credentials */
 const char* ssid = "ESP32";
 const char* password = "12345678";
@@ -22,12 +24,28 @@ bool LED1status = LOW;
 bool isAuthenticated = false; // Authentication status
 
 const int sensorPin = 35; // Analog sensor pin
+const int buzzer = 23;
 int sensorValue = 0;
+
+
+const int BUZZER_PIN = 23;
+const int GAS_SENSOR_PIN = 35;
+bool Gas_Leak_Status = false;
+int sms_count = 0;
+int gasThreshold = 1000;
+
+String phone_no = "+639453674856";
+String txt_content = "Leak Detected!!!\nLocation: PUREZA STATION";
 
 void setup() {
   Serial.begin(115200);
   pinMode(LED1pin, OUTPUT);
 
+  pinMode(GAS_SENSOR_PIN, INPUT);
+  pinMode(BUZZER_PIN, OUTPUT);
+  
+  // SIM900A.begin(38400, SERIAL_8N1, 16, 17);
+  
   // Initialize Wi-Fi Access Point
   WiFi.softAP(ssid, password);
   WiFi.softAPConfig(local_ip, gateway, subnet);
@@ -51,6 +69,8 @@ void loop() {
   digitalWrite(LED1pin, LED1status ? HIGH : LOW); // Update LED status
   sensorValue = analogRead(sensorPin); // Continuously update sensor value
   Serial.println(sensorValue); // Print sensor value to Serial Monitor
+  CheckGas();
+  CheckShutDown();
 }
 
 // Main page handler
@@ -66,15 +86,67 @@ void handle_MainPage() {
 // Login page handler
 void handle_LoginPage() {
   String loginHTML = "<!DOCTYPE html><html>\n";
-  loginHTML += "<head><title>Login</title></head>\n";
-  loginHTML += "<body><h2>Login</h2>\n";
-  loginHTML += "<form action=\"/authenticate\" method=\"POST\">\n";
-  loginHTML += "Username: <input type=\"text\" name=\"username\"><br>\n";
-  loginHTML += "Password: <input type=\"password\" name=\"password\"><br>\n";
-  loginHTML += "<input type=\"submit\" value=\"Login\">\n";
-  loginHTML += "</form></body></html>\n";
+  loginHTML += "<head><title>Login</title>\n";
+  loginHTML += "<style>\n";
+  loginHTML += "  body {\n";
+  loginHTML += "    font-family: Helvetica, Arial, sans-serif;\n";
+  loginHTML += "    margin: 0;\n";
+  loginHTML += "    padding: 0;\n";
+  loginHTML += "    display: flex;\n";
+  loginHTML += "    justify-content: center;\n";
+  loginHTML += "    align-items: center;\n";
+  loginHTML += "    height: 100vh;\n";
+  loginHTML += "    background-color: #eaf6ff;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container {\n";
+  loginHTML += "    background-color: #3498db;\n";
+  loginHTML += "    padding: 20px 40px;\n";
+  loginHTML += "    border-radius: 10px;\n";
+  loginHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
+  loginHTML += "    text-align: center;\n";
+  loginHTML += "    color: white;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container h2 {\n";
+  loginHTML += "    margin-bottom: 20px;\n";
+  loginHTML += "    font-size: 24px;\n";
+  loginHTML += "    color: #ffffff;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='text'],\n";
+  loginHTML += "  .login-container input[type='password'] {\n";
+  loginHTML += "    width: 100%;\n";
+  loginHTML += "    padding: 10px;\n";
+  loginHTML += "    margin: 10px 0;\n";
+  loginHTML += "    border: none;\n";
+  loginHTML += "    border-radius: 5px;\n";
+  loginHTML += "    font-size: 16px;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='submit'] {\n";
+  loginHTML += "    background-color: #2874a6;\n";
+  loginHTML += "    color: white;\n";
+  loginHTML += "    border: none;\n";
+  loginHTML += "    padding: 10px 20px;\n";
+  loginHTML += "    font-size: 16px;\n";
+  loginHTML += "    border-radius: 5px;\n";
+  loginHTML += "    cursor: pointer;\n";
+  loginHTML += "  }\n";
+  loginHTML += "  .login-container input[type='submit']:hover {\n";
+  loginHTML += "    background-color: #1b4f72;\n";
+  loginHTML += "  }\n";
+  loginHTML += "</style>\n";
+  loginHTML += "</head>\n";
+  loginHTML += "<body>\n";
+  loginHTML += "  <div class='login-container'>\n";
+  loginHTML += "    <h2>GAS LEAK DETECTOR</h2>\n";
+  loginHTML += "    <form action='/authenticate' method='POST'>\n";
+  loginHTML += "      <input type='text' name='username' placeholder='Username' required><br>\n";
+  loginHTML += "      <input type='password' name='password' placeholder='Password' required><br>\n";
+  loginHTML += "      <input type='submit' value='Login'>\n";
+  loginHTML += "    </form>\n";
+  loginHTML += "  </div>\n";
+  loginHTML += "</body></html>\n";
   server.send(200, "text/html", loginHTML);
 }
+
 
 // Authentication handler
 void handle_Authenticate() {
@@ -120,6 +192,67 @@ void handle_led1off() {
 void handle_NotFound() {
   server.send(404, "text/plain", "Not found");
 }
+
+void CheckGas() {
+  sensorValue = analogRead(GAS_SENSOR_PIN); // Read gas sensor value
+  Serial.print("Gas Sensor Value: ");
+  Serial.println(sensorValue); // Print value to Serial Monitor
+
+  if (sensorValue > gasThreshold) {
+    // Alert State
+    // digitalWrite(GREEN_LED, LOW);
+    // digitalWrite(RED_LED, HIGH);
+    SetAlert();
+    delay(2000);
+    // callUp(phone_no);
+  }
+  delay(100);
+}
+
+void SetAlert() {
+  tone(BUZZER_PIN, 1000, 5000); // Sound buzzer for 5 seconds
+
+  while (sms_count < 1) { // Send SMS alert only once
+    // SendTextMessage(txt_content);
+    sms_count++;
+  }
+  Gas_Leak_Status = true;
+}
+
+void CheckShutDown() {
+  if (Gas_Leak_Status) {
+    int Gas_shut_val = analogRead(GAS_SENSOR_PIN);
+    if (Gas_shut_val < gasThreshold) {
+      // Restore to normal state
+      // digitalWrite(RED_LED, LOW);
+      // digitalWrite(GREEN_LED, HIGH);
+      noTone(BUZZER_PIN);
+      sms_count = 0;
+      Gas_Leak_Status = false;
+      Serial.println("Gas leak resolved.");
+    }
+  }
+}
+
+// void SendTextMessage(String txt_content) {
+//   Serial.println("Sending SMS...");
+//   SIM900A.println("AT+CMGF=1"); // Set SMS mode to Text
+//   delay(1000);
+
+//   SIM900A.print("AT+CMGS=\"");
+//   SIM900A.print(phone_no);
+//   SIM900A.println("\"");
+//   delay(1000);
+
+//   SIM900A.println(txt_content); // SMS content
+//   delay(500);
+
+//   SIM900A.write(26); // End SMS with CTRL+Z
+//   delay(2000);
+
+//   Serial.println("SMS sent successfully!");
+//   sms_count++;
+// }
 
 // Generate HTML content
 String SendHTML(bool led1status, int sensorVal) {
