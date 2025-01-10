@@ -68,28 +68,31 @@ void setup() {
   server.on("/", handle_MainPage);
   server.on("/login", handle_LoginPage);
   server.on("/authenticate", handle_Authenticate);
-  server.on("/led1on", handle_led1on);
-  server.on("/led1off", handle_led1off);
   server.on("/sensor-data", handle_SensorData);
+  server.on("/settings", handle_SettingsPage);
+  server.on("/update-settings", handle_UpdateSettings);
   server.onNotFound(handle_NotFound);
 
   // Start server
   server.begin();
   Serial.println("HTTP server started");
+  initializeSensor();
 }
 
 void loop() {
   server.handleClient();
-  digitalWrite(LED1pin, LED1status ? HIGH : LOW); // Update LED status
   sensorValue = analogRead(sensorPin); // Continuously update sensor value
   Serial.println(sensorValue); // Print sensor value to Serial Monitor
   CheckGas();
   CheckShutDown();
 }
 
-
-// Login page handler
-
+void initializeSensor(){
+  while(analogRead(sensorPin) > 900){
+    Serial.println("Initializing...");
+  }
+  Serial.println("Done Initialization...");
+}
 
 // Authentication handler
 void handle_Authenticate() {
@@ -107,30 +110,7 @@ void handle_Authenticate() {
   server.send(200, "text/html", "<h2>Login Failed</h2><p>Invalid credentials. <a href=\"/login\">Try again</a></p>");
 }
 
-// Turn LED on handler
-void handle_led1on() {
-  if (!isAuthenticated) {
-    server.sendHeader("Location", "/login");
-    server.send(303);
-    return;
-  }
-  LED1status = HIGH;
-  Serial.println("LED1 Status: ON");
-  server.send(200, "text/html", SendHTML(LED1status, sensorValue));
-}
 
-
-// Turn LED off handler
-void handle_led1off() {
-  if (!isAuthenticated) {
-    server.sendHeader("Location", "/login");
-    server.send(303);
-    return;
-  }
-  LED1status = LOW;
-  Serial.println("LED1 Status: OFF");
-  server.send(200, "text/html", SendHTML(LED1status, sensorValue));
-}
 void handle_SensorData() {
   String jsonResponse = "{";
   jsonResponse += "\"sensorValue\":" + String(sensorValue) + ",";
@@ -210,42 +190,7 @@ void CheckShutDown() {
 //   sms_count++;
 // }
 
-// Generate HTML content
-String SendHTML(bool led1status, int sensorVal) {
-  String ptr = "<!DOCTYPE html> <html>\n";
-  ptr += "<head><meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0, user-scalable=no\">\n";
-  ptr += "<title>ESP32 Sensor Monitor</title>\n";
-  ptr += "<style>html { font-family: Helvetica; text-align: center;}\n";
-  ptr += "body {margin: 0; padding: 20px;}\n";
-  ptr += ".button {display: inline-block; margin: 10px; padding: 10px 20px; color: white; text-decoration: none; border-radius: 4px;}\n";
-  ptr += ".button-on {background-color: #3498db;}\n";
-  ptr += ".button-off {background-color: #34495e;}\n";
-  ptr += "</style>\n";
-  ptr += "</head>\n";
-  ptr += "<body>\n";
-  ptr += "<h1>ESP32 Sensor Monitor</h1>\n";
-  ptr += "<h3>Using Access Point (AP) Mode</h3>\n";
-  ptr += "<p>Sensor Value: <span id='sensorValue'>" + String(sensorVal) + "</span></p>\n";
-  ptr += "<button class='button button-on' onclick='toggleLED(\"on\")'>Turn LED ON</button>\n";
-  ptr += "<button class='button button-off' onclick='toggleLED(\"off\")'>Turn LED OFF</button>\n";
-  ptr += "<script>\n";
-  ptr += "function updateSensor() {\n";
-  ptr += "  fetch('/').then(response => response.text()).then(data => {\n";
-  ptr += "    const parser = new DOMParser();\n";
-  ptr += "    const doc = parser.parseFromString(data, 'text/html');\n";
-  ptr += "    const newValue = doc.getElementById('sensorValue').innerText;\n";
-  ptr += "    document.getElementById('sensorValue').innerText = newValue;\n";
-  ptr += "  });\n";
-  ptr += "}\n";
-  ptr += "function toggleLED(action) {\n";
-  ptr += "  fetch('/led1' + action).then(() => updateSensor());\n";
-  ptr += "}\n";
-  ptr += "setInterval(updateSensor, 2000);\n"; // Update every 2 seconds
-  ptr += "</script>\n";
-  ptr += "</body>\n";
-  ptr += "</html>\n";
-  return ptr;
-}
+
 
 void handle_LoginPage() {
   String loginHTML = "<!DOCTYPE html><html>\n";
@@ -377,6 +322,10 @@ void handle_MainPage() {
   mainHTML += "</head>\n";
   mainHTML += "<body>\n";
   mainHTML += "  <div class='container'>\n";
+  mainHTML += "    <div style='text-align: right;'>\n";
+  mainHTML += "      <a href='/settings' style='text-decoration: none; font-size: 16px; color: white; border: 2px solid lightblue;'>Settings</a>\n";
+  mainHTML += "    </div>\n";
+
   mainHTML += "    <h1>GAS LEAK DETECTOR</h1>\n";
   mainHTML += "    <p>Welcome to the GAS LEAK DETECTOR monitoring system.</p>\n";
 
@@ -425,9 +374,90 @@ void handle_MainPage() {
   mainHTML += "</body></html>\n";
   server.send(200, "text/html", mainHTML);
 }
+void handle_SettingsPage() {
+  if (!isAuthenticated) {
+    server.sendHeader("Location", "/login");
+    server.send(303); // Redirect to login page
+    return;
+  }
 
-// History record structure
+  String settingsHTML = "<!DOCTYPE html><html>\n";
+  settingsHTML += "<head><title>Settings</title>\n";
+  settingsHTML += "<style>\n";
+  settingsHTML += "  body {\n";
+  settingsHTML += "    font-family: Helvetica, Arial, sans-serif;\n";
+  settingsHTML += "    margin: 0;\n";
+  settingsHTML += "    padding: 0;\n";
+  settingsHTML += "    display: flex;\n";
+  settingsHTML += "    justify-content: center;\n";
+  settingsHTML += "    align-items: center;\n";
+  settingsHTML += "    height: 100vh;\n";
+  settingsHTML += "    background-color: #eaf6ff;\n";
+  settingsHTML += "  }\n";
+  settingsHTML += "  .settings-container {\n";
+  settingsHTML += "    background-color: #3498db;\n";
+  settingsHTML += "    padding: 20px 40px;\n";
+  settingsHTML += "    border-radius: 10px;\n";
+  settingsHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
+  settingsHTML += "    color: white;\n";
+  settingsHTML += "  }\n";
+  settingsHTML += "  input[type='text'], input[type='password'], input[type='number'] {\n";
+  settingsHTML += "    width: 100%;\n";
+  settingsHTML += "    padding: 10px;\n";
+  settingsHTML += "    margin: 10px 0;\n";
+  settingsHTML += "    border: none;\n";
+  settingsHTML += "    border-radius: 5px;\n";
+  settingsHTML += "    font-size: 16px;\n";
+  settingsHTML += "  }\n";
+  settingsHTML += "  input[type='submit'], .back-button {\n";
+  settingsHTML += "    background-color: #2874a6;\n";
+  settingsHTML += "    color: white;\n";
+  settingsHTML += "    border: none;\n";
+  settingsHTML += "    padding: 10px 20px;\n";
+  settingsHTML += "    font-size: 16px;\n";
+  settingsHTML += "    border-radius: 5px;\n";
+  settingsHTML += "    cursor: pointer;\n";
+  settingsHTML += "  }\n";
+  settingsHTML += "  .back-button {\n";
+  settingsHTML += "    margin-top: 10px;\n";
+  settingsHTML += "    background-color: #1b4f72;\n";
+  settingsHTML += "  }\n";
+  settingsHTML += "</style>\n";
+  settingsHTML += "</head>\n";
+  settingsHTML += "<body>\n";
+  settingsHTML += "  <div class='settings-container'>\n";
+  settingsHTML += "    <h2>Settings</h2>\n";
+  settingsHTML += "    <form action='/update-settings' method='POST'>\n";
+  settingsHTML += "      <label for='username'>New Username:</label>\n";
+  settingsHTML += "      <input type='text' id='username' name='username' placeholder='Enter new username' required><br>\n";
+  settingsHTML += "      <label for='password'>New Password:</label>\n";
+  settingsHTML += "      <input type='password' id='password' name='password' placeholder='Enter new password' required><br>\n";
+  settingsHTML += "      <label for='threshold'>Gas Threshold:</label>\n";
+  settingsHTML += "      <input type='number' id='threshold' name='threshold' placeholder='Enter threshold value' value='" + String(gasThreshold) + "' required><br>\n";
+  settingsHTML += "      <input type='submit' value='Save Changes'>\n";
+  settingsHTML += "    </form>\n";
+  settingsHTML += "    <a href='/' class='back-button'>Back to Main Page</a>\n";
+  settingsHTML += "  </div>\n";
+  settingsHTML += "</body></html>\n";
 
+  server.send(200, "text/html", settingsHTML);
+}
+void handle_UpdateSettings() {
+  if (server.hasArg("username") && server.hasArg("password") && server.hasArg("threshold")) {
+    String newUsername = server.arg("username");
+    String newPassword = server.arg("password");
+    int newThreshold = server.arg("threshold").toInt();
+
+    // Update credentials and threshold
+    loginUsername = newUsername.c_str();
+    loginPassword = newPassword.c_str();
+    gasThreshold = newThreshold;
+
+    server.send(200, "text/html", "<h2>Settings Updated!</h2><a href='/'>Back to Main Page</a>");
+    return;
+  }
+  server.send(400, "text/html", "<h2>Invalid Input!</h2><a href='/settings'>Back to Settings</a>");
+}
 
 
 String getCurrentDate() {
@@ -441,4 +471,3 @@ String getCurrentTime() {
   String time = String(hour()) + ":" + String(minute()) + ":" + String(second());
   return time;
 }
-

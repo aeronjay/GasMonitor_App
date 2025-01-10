@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GAS LEAK DETECTOR</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: Helvetica, Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+    }
+    .sidebar {
+      width: 250px;
+      background-color: #2874a6;
+      color: white;
+      height: 100vh;
+      padding: 20px;
+      box-shadow: 2px 0 10px rgba(0, 0, 0, 0.2);
+      position: fixed;
+    }
+    .sidebar h2 {
+      text-align: center;
+    }
+    .sidebar ul {
+      list-style: none;
+      padding: 0;
+    }
+    .sidebar ul li {
+      margin: 15px 0;
+    }
+    .sidebar ul li a {
+      color: white;
+      text-decoration: none;
+      font-size: 16px;
+      display: block;
+    }
+    .sidebar ul li a:hover {
+      background-color: #21618c;
+      border-radius: 5px;
+      padding: 5px;
+    }
+    .content {
+      margin-left: 260px;
+      padding: 20px;
+      flex-grow: 1;
+      background-color: #eaf6ff;
+      min-height: 100vh;
+    }
+    .container {
+      background-color: #3498db;
+      color: white;
+      padding: 15px;
+      border-radius: 10px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+    .sensor-value {
+      font-size: 18px;
+      margin: 15px 0;
+      padding: 10px;
+      border-radius: 5px;
+    }
+    .safe { background-color: #2ecc71; color: white; }
+    .high { background-color: #f1c40f; color: white; }
+    .danger { background-color: #e74c3c; color: white; }
+    table {
+      width: 100%;
+      margin-top: 15px;
+      border-collapse: collapse;
+      background-color: white;
+      color: #333;
+      font-size: 14px;
+    }
+    table th, table td {
+      border: 1px solid #ddd;
+      padding: 6px;
+      text-align: center;
+    }
+    table th {
+      background-color: #2874a6;
+      color: white;
+    }
+    h1, h2 {
+      font-size: 20px;
+    }
+    .settings-button {
+      display: block;
+      margin: 20px auto;
+      padding: 10px 20px;
+      background-color: #f39c12;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      font-size: 16px;
+      cursor: pointer;
+      text-align: center;
+      text-decoration: none;
+    }
+    .settings-button:hover {
+      background-color: #d35400;
+    }
+  </style>
+</head>
+<body>
+  <div class="sidebar">
+    <h2>Menu</h2>
+    <ul>
+      <li><a href="#">Home</a></li>
+      <li><a href="settings.html">Settings</a></li>
+      <li><a href="#">About</a></li>
+    </ul>
+  </div>
+  <div class="content">
+    <div class="container">
+      <h1>GAS LEAK DETECTOR</h1>
+      <p>Welcome to the GAS LEAK DETECTOR monitoring system.</p>
+      <div class="sensor-value safe">
+        Current Sensor Value: <span id="sensorValue">0</span>
+      </div>
+      <h2>History</h2>
+      <table>
+        <tr>
+          <th>Date</th>
+          <th>Time</th>
+          <th>Recorded Sensor Value</th>
+        </tr>
+        <!-- History records will be added here dynamically -->
+      </table>
+    </div>
+    <a href="settings.html" class="settings-button">Go to Settings</a>
+  </div>
+  <script>
+    function fetchSensorData() {
+      fetch('/')
+        .then(response => response.text())
+        .then(html => {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(html, 'text/html');
+          const newValue = doc.getElementById('sensorValue').innerText;
+          document.getElementById('sensorValue').innerText = newValue;
+        });
+    }
+    setInterval(fetchSensorData, 2000); // Refresh every 2 seconds
+  </script>
+</body>
+</html>
