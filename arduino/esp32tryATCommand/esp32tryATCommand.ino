@@ -10,6 +10,10 @@ void setup() {
   delay(2000); // Allow time for the SIM900A to initialize
 
   checkModuleReady();
+  checkSignalQuality();
+  SendTextMessage("Hello");
+  delay(1000);
+
 }
 
 void loop() {
@@ -46,4 +50,22 @@ void printResponse() {
   while (SIM900A.available()) {
     Serial.write(SIM900A.read()); // Print SIM900A response to Serial Monitor
   }
+}
+void SendTextMessage(String txt_content) {
+  Serial.println("Sending SMS...");
+  SIM900A.println("AT+CMGF=1"); // Set SMS mode to Text
+  delay(1000);
+
+  SIM900A.print("AT+CMGS=\"");
+  SIM900A.print("+639695192609");
+  SIM900A.println("\"");
+  delay(1000);
+
+  // SIM900A.println(txt_content); // SMS content
+  delay(500);
+
+  SIM900A.write(26); // End SMS with CTRL+Z
+  delay(2000);
+
+  Serial.println("SMS sent successfully!");
 }

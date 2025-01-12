@@ -2,11 +2,16 @@
 #include <WebServer.h>
 #include <TimeLib.h>
 
-//HardwareSerial SIM900A(2);
+HardwareSerial SIM900A(2);
 
 /* Wi-Fi credentials */
 const char* ssid = "ESP32";
 const char* password = "12345678";
+
+
+const int SIM900A_RX = 16; // RX2
+const int SIM900A_TX = 17; // TX2
+
 
 /* IP configuration */
 IPAddress local_ip(192, 168, 1, 1);
@@ -35,7 +40,7 @@ bool Gas_Leak_Status = false;
 int sms_count = 0;
 int gasThreshold = 1000;
 
-String phone_no = "+639453674856";
+String phone_no = "+639695192609";
 String txt_content = "Leak Detected!!!\nLocation: PUREZA STATION";
 
 struct HistoryRecord {
@@ -50,8 +55,9 @@ std::vector<HistoryRecord> historyRecords;
 
 
 void setup() {
-  setTime(12, 0, 0, 1, 1, 2025);
+  setTime(10, 52, 0, 1, 12, 2025);
   Serial.begin(115200);
+  SIM900A.begin(38400, SERIAL_8N1, SIM900A_RX, SIM900A_TX);
   pinMode(LED1pin, OUTPUT);
 
   pinMode(GAS_SENSOR_PIN, INPUT);
@@ -90,8 +96,10 @@ void loop() {
 void initializeSensor(){
   while(analogRead(sensorPin) > 900){
     Serial.println("Initializing...");
+    Serial.println(analogRead(sensorPin));
   }
   Serial.println("Done Initialization...");
+  delay(2000);
 }
 
 // Authentication handler
@@ -149,7 +157,7 @@ void SetAlert() {
   tone(BUZZER_PIN, 1000, 5000); // Sound buzzer for 5 seconds
 
   while (sms_count < 1) { // Send SMS alert only once
-    // SendTextMessage(txt_content);
+    SendTextMessage(txt_content);
     sms_count++;
   }
   Gas_Leak_Status = true;
@@ -170,25 +178,25 @@ void CheckShutDown() {
   }
 }
 
-// void SendTextMessage(String txt_content) {
-//   Serial.println("Sending SMS...");
-//   SIM900A.println("AT+CMGF=1"); // Set SMS mode to Text
-//   delay(1000);
+void SendTextMessage(String txt_content) {
+  Serial.println("Sending SMS...");
+  SIM900A.println("AT+CMGF=1"); // Set SMS mode to Text
+  delay(1000);
 
-//   SIM900A.print("AT+CMGS=\"");
-//   SIM900A.print(phone_no);
-//   SIM900A.println("\"");
-//   delay(1000);
+  SIM900A.print("AT+CMGS=\"");
+  SIM900A.print(phone_no);
+  SIM900A.println("\"");
+  delay(1000);
 
-//   SIM900A.println(txt_content); // SMS content
-//   delay(500);
+  SIM900A.println(txt_content); // SMS content
+  delay(500);
 
-//   SIM900A.write(26); // End SMS with CTRL+Z
-//   delay(2000);
+  SIM900A.write(26); // End SMS with CTRL+Z
+  delay(2000);
 
-//   Serial.println("SMS sent successfully!");
-//   sms_count++;
-// }
+  Serial.println("SMS sent successfully!");
+  sms_count++;
+}
 
 
 
