@@ -55,7 +55,7 @@ std::vector<HistoryRecord> historyRecords;
 
 
 void setup() {
-  setTime(10, 52, 0, 1, 12, 2025);
+  setTime(5, 20, 0, 1, 13, 2025);
   Serial.begin(115200);
   SIM900A.begin(38400, SERIAL_8N1, SIM900A_RX, SIM900A_TX);
   pinMode(LED1pin, OUTPUT);
@@ -331,7 +331,7 @@ void handle_MainPage() {
   mainHTML += "<body>\n";
   mainHTML += "  <div class='container'>\n";
   mainHTML += "    <div style='text-align: right;'>\n";
-  mainHTML += "      <a href='/settings' style='text-decoration: none; font-size: 16px; color: white; border: 2px solid lightblue;'>Settings</a>\n";
+  mainHTML += "      <a href='/settings' style='text-decoration: none; font-size: 16px; color: white; border: 2px solid lightblue; padding: 3px 5px; border radius: 5px;'>Settings</a>\n";
   mainHTML += "    </div>\n";
 
   mainHTML += "    <h1>GAS LEAK DETECTOR</h1>\n";
@@ -404,7 +404,7 @@ void handle_SettingsPage() {
   settingsHTML += "  }\n";
   settingsHTML += "  .settings-container {\n";
   settingsHTML += "    background-color: #3498db;\n";
-  settingsHTML += "    padding: 20px 40px;\n";
+  settingsHTML += "    padding: 50px;\n";
   settingsHTML += "    border-radius: 10px;\n";
   settingsHTML += "    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);\n";
   settingsHTML += "    color: white;\n";
@@ -412,7 +412,7 @@ void handle_SettingsPage() {
   settingsHTML += "  input[type='text'], input[type='password'], input[type='number'] {\n";
   settingsHTML += "    width: 100%;\n";
   settingsHTML += "    padding: 10px;\n";
-  settingsHTML += "    margin: 10px 0;\n";
+  settingsHTML += "    margin: 10px 10px;\n";
   settingsHTML += "    border: none;\n";
   settingsHTML += "    border-radius: 5px;\n";
   settingsHTML += "    font-size: 16px;\n";
@@ -425,9 +425,10 @@ void handle_SettingsPage() {
   settingsHTML += "    font-size: 16px;\n";
   settingsHTML += "    border-radius: 5px;\n";
   settingsHTML += "    cursor: pointer;\n";
+  settingsHTML += "    margin: 10px;\n";
   settingsHTML += "  }\n";
   settingsHTML += "  .back-button {\n";
-  settingsHTML += "    margin-top: 10px;\n";
+  settingsHTML += "    margin: 10px;\n";
   settingsHTML += "    background-color: #1b4f72;\n";
   settingsHTML += "  }\n";
   settingsHTML += "</style>\n";
@@ -442,8 +443,10 @@ void handle_SettingsPage() {
   settingsHTML += "      <input type='password' id='password' name='password' placeholder='Enter new password' required><br>\n";
   settingsHTML += "      <label for='threshold'>Gas Threshold:</label>\n";
   settingsHTML += "      <input type='number' id='threshold' name='threshold' placeholder='Enter threshold value' value='" + String(gasThreshold) + "' required><br>\n";
+  settingsHTML += "      <label for='phone'>Phone Number:</label>\n";
+  settingsHTML += "      <input type='number' id='phone' name='phone' placeholder='Enter Phone Number'><br>\n";
   settingsHTML += "      <input type='submit' value='Save Changes'>\n";
-  settingsHTML += "    </form>\n";
+  settingsHTML += "    </form><br><br><br>\n";
   settingsHTML += "    <a href='/' class='back-button'>Back to Main Page</a>\n";
   settingsHTML += "  </div>\n";
   settingsHTML += "</body></html>\n";
